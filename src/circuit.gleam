@@ -12,3 +12,18 @@ pub type CallResult {
   Success
   Failure(reason: String)
 }
+
+pub fn transition(
+  state: CircuitState,
+  result: CallResult,
+  failures: Int,
+  config: Config,
+) -> CircuitState {
+  case state, result {
+    Closed, Failure(_) if failures >= config.failure_threshold -> Open
+    Closed, _ -> Closed
+    Open, _ -> Open
+    HalfOpen, Success -> Closed
+    HalfOpen, Failure(_) -> Open
+  }
+}
