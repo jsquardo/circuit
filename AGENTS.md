@@ -32,7 +32,7 @@ through to test recovery. Three states: Closed (normal), Open (tripped), HalfOpe
 and concurrent-safe.
 
 ### Phase overview
-- [ ] Phase 1 — Project setup and core types (CircuitState, Config, CallResult)
+- [x] Phase 1 — Project setup and core types (CircuitState, Config, CallResult)
 - [ ] Phase 2 — The state machine (transitions between Closed/Open/HalfOpen)
 - [ ] Phase 3 — The actor (wrapping state machine in an OTP process)
 - [ ] Phase 4 — The sliding window (tracking failures over time, not just a counter)
@@ -44,15 +44,16 @@ and concurrent-safe.
 
 ## Current status
 
-**Active phase:** Phase 1 — Not started yet
+**Active phase:** Phase 2 — The state machine
 
-**Last session:** N/A
+**Last session:** 2026-03-25
 
 **What we've built so far:**
-- Nothing yet — fresh project
+- `CircuitState` — custom type with 3 variants: `Closed`, `Open`, `HalfOpen`
+- `Config` — single-variant custom type with 3 labeled fields: `failure_threshold`, `window_size`, `reset_timeout`
+- `CallResult` — 2-variant custom type: `Success` and `Failure(reason: String)`
 
-**Next step:** Run `gleam new circuit` to initialize the project, then open
-AGENTS.md and start Phase 1.
+**Next step:** Phase 2 — build the state machine (pure functions that handle transitions between states)
 
 ---
 
@@ -68,6 +69,13 @@ AGENTS.md and start Phase 1.
   Five core functions: `start`, `call`, `record_failure`, `reset`, `state`.
 - **Builder pattern for config:** Pipeline-style setup like glimit uses, which is
   idiomatic in the Gleam ecosystem.
+
+---
+
+## How Johnny learns best
+- **Show, don't type** — present code for Johnny to type himself; do not write to src files directly
+- Wait for Johnny to share terminal output before continuing
+- Don't run `gleam` CLI commands — Johnny runs those and shares the results
 
 ---
 
@@ -118,6 +126,16 @@ AGENTS.md and start Phase 1.
 **Needs reinforcement:**
 **Stopped at:**
 **Next step:**
+
+---
+
+### Session 1 — 2026-03-25
+**Covered:** Phase 1 — core types
+**Concepts introduced:** Custom types with variants, constructors vs type names, labeled fields, `Result` vs `Option` vs custom types
+**Johnny seemed solid on:** Why libraries don't have `main`, capital letters for constructors being required, connecting `CallResult` to `Option`/`Result` pattern
+**Needs reinforcement:** Nothing flagged — clean session
+**Stopped at:** End of Phase 1, all three types compiling
+**Next step:** Phase 2 — state machine (pure transition functions)
 
 ---
 
