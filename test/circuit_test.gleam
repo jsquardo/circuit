@@ -1,6 +1,8 @@
 import circuit.{
   type Config, Closed, Config, Failure, HalfOpen, Open, Success, transition,
+  start, GetState, RecordResult,
 }
+import gleam/erlang/process
 import gleeunit
 
 pub fn main() -> Nil {
@@ -45,4 +47,21 @@ pub fn half_open_recovers_on_success_test() {
 pub fn half_open_trips_back_on_failure_test() {
   let result = transition(HalfOpen, Failure("timeout"), 1, default_config())
   assert result == Open
+}
+
+// Actor starts in Closed state
+pub fn actor_starts_in_closed_state_test() {
+  let assert Ok(subject) = start(default_config())
+  let state = process.call(subject, 100, GetState)
+  assert state == Closed
+}
+
+// Actor trips to Open after enough failures
+pub fn actor_trips_to_open_test() {
+  let assert Ok(subject) = start(default_config())
+  process.send(subject, RecordResult(Failure("err")))
+  process.send(subject, RecordResult(Failure("err")))
+  process.send(subject, RecordResult(Failure("err")))
+  let state = process.call(subject, 100, GetState)
+  assert state == Open
 }
