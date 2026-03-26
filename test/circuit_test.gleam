@@ -1,8 +1,7 @@
 import circuit.{
   type Config, Closed, Config, Failure, HalfOpen, Open, Success, transition,
-  start, GetState, RecordResult,
+  start, state, record_result, call, CircuitOpen, CallFailed,
 }
-import gleam/erlang/process
 import gleeunit
 
 pub fn main() -> Nil {
@@ -51,17 +50,39 @@ pub fn half_open_trips_back_on_failure_test() {
 
 // Actor starts in Closed state
 pub fn actor_starts_in_closed_state_test() {
-  let assert Ok(subject) = start(default_config())
-  let state = process.call(subject, 100, GetState)
-  assert state == Closed
+  let assert Ok(breaker) = start(default_config())
+  assert state(breaker) == Closed
 }
 
 // Actor trips to Open after enough failures
 pub fn actor_trips_to_open_test() {
-  let assert Ok(subject) = start(default_config())
-  process.send(subject, RecordResult(Failure("err")))
-  process.send(subject, RecordResult(Failure("err")))
-  process.send(subject, RecordResult(Failure("err")))
-  let state = process.call(subject, 100, GetState)
-  assert state == Open
+  let assert Ok(breaker) = start(default_config())
+  record_result(breaker, Failure("err"))
+  record_result(breaker, Failure("err"))
+  record_result(breaker, Failure("err"))
+  assert state(breaker) == Open
+}
+
+// call returns Ok on success
+pub fn call_returns_ok_on_success_test() {
+  let assert Ok(breaker) = start(default_config())
+  let result = call(breaker, fn() { Success })
+  assert result == Ok(Nil)
+}
+
+// call returns CallFailed on failure
+pub fn call_returns_error_on_failure_test() {
+  let assert Ok(breaker) = start(default_config())
+  let result = call(breaker, fn() { Failure("timeout") })
+  assert result == Error(CallFailed("timeout"))
+}
+
+// call returns CircuitOpen when breaker is open
+pub fn call_blocked_when_open_test() {
+  let assert Ok(breaker) = start(default_config())
+  record_result(breaker, Failure("err"))
+  record_result(breaker, Failure("err"))
+  record_result(breaker, Failure("err"))
+  let result = call(breaker, fn() { Success })
+  assert result == Error(CircuitOpen)
 }

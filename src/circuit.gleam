@@ -17,6 +17,25 @@ pub type CallResult {
   Failure(reason: String)
 }
 
+pub type Message {
+  RecordResult(CallResult)
+  GetState(Subject(CircuitState))
+  Reset
+}
+
+pub type ActorState {
+  ActorState(
+    circuit_state: CircuitState,
+    window: List(CallResult),
+    config: Config,
+  )
+}
+
+pub type CallError {
+  CircuitOpen
+  CallFailed(reason: String)
+}
+
 pub fn transition(
   state: CircuitState,
   result: CallResult,
@@ -30,20 +49,6 @@ pub fn transition(
     HalfOpen, Success -> Closed
     HalfOpen, Failure(_) -> Open
   }
-}
-
-pub type Message {
-  RecordResult(CallResult)
-  GetState(Subject(CircuitState))
-  Reset
-}
-
-pub type ActorState {
-  ActorState(
-    circuit_state: CircuitState,
-    window: List(CallResult),
-    config: Config,
-  )
 }
 
 fn handle_message(
@@ -80,13 +85,46 @@ fn handle_message(
   }
 }
 
-pub fn start(config: Config) -> Result(Subject(Message), actor.StartError) {
+pub fn start(config: Config) -> Result(CircuitBreaker, actor.StartError) {
   let initial_state =
     ActorState(circuit_state: Closed, window: [], config: config)
   case
     actor.new(initial_state) |> actor.on_message(handle_message) |> actor.start
   {
-    Ok(started) -> Ok(started.data)
+    Ok(started) -> Ok(CircuitBreaker(subject: started.data))
     Error(e) -> Error(e)
+  }
+}
+
+pub fn state(breaker: CircuitBreaker) -> CircuitState {
+  process.call(breaker.subject, 100, GetState)
+}
+
+pub fn reset(breaker: CircuitBreaker) -> Nil {
+  process.send(breaker.subject, Reset)
+}
+
+pub fn record_result(breaker: CircuitBreaker, result: CallResult) -> Nil {
+  process.send(breaker.subject, RecordResult(result))
+}
+
+pub opaque type CircuitBreaker {
+  CircuitBreaker(subject: Subject(Message))
+}
+
+pub fn call(
+  breaker: CircuitBreaker,
+  f: fn() -> CallResult,
+) -> Result(Nil, CallError) {
+  case state(breaker) {
+    Open -> Error(CircuitOpen)
+    _ -> {
+      let result = f()
+      record_result(breaker, result)
+      case result {
+        Success -> Ok(Nil)
+        Failure(reason) -> Error(CallFailed(reason))
+      }
+    }
   }
 }
