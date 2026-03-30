@@ -1,6 +1,6 @@
 import circuit.{
   type Config, Closed, Config, Failure, HalfOpen, Open, Success, transition,
-  start, state, record_result, call, CircuitOpen, CallFailed,
+  start, state, record_result, call, reset, CircuitOpen, CallFailed,
 }
 import gleeunit
 
@@ -85,4 +85,19 @@ pub fn call_blocked_when_open_test() {
   record_result(breaker, Failure("err"))
   let result = call(breaker, fn() { Success })
   assert result == Error(CircuitOpen)
+}
+
+// reset returns breaker to Closed and clears the window
+pub fn reset_returns_to_closed_test() {
+  let assert Ok(breaker) = start(default_config())
+  record_result(breaker, Failure("err"))
+  record_result(breaker, Failure("err"))
+  record_result(breaker, Failure("err"))
+  assert state(breaker) == Open
+  reset(breaker)
+  assert state(breaker) == Closed
+  // window was cleared — 2 more failures should not trip the breaker
+  record_result(breaker, Failure("err"))
+  record_result(breaker, Failure("err"))
+  assert state(breaker) == Closed
 }
